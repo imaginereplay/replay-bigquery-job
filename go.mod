@@ -1,4 +1,4 @@
-module github.com/imaginereplay/replay-bigquery-job
+module github.com/esdigitalLTDA/replay-bigquery-job
 
 go 1.23.0
 
