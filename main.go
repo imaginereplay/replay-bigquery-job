@@ -11,8 +11,8 @@ import (
 func main() {
 	c := cron.New()
 
-	// Adiciona uma tarefa para rodar todos os dias às 23h59
-	c.AddFunc("59 23 * * *", func() {
+	// Adiciona uma tarefa para rodar todos os dias à 00:00
+	c.AddFunc("00 00 * * *", func() {
 		err := processJobs(time.Now())
 		if err != nil {
 			log.Println("Erro ao processar jobs:", err)

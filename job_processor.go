@@ -11,27 +11,44 @@ import (
 )
 
 type JobData struct {
-	JobID   string
-	ChunkID float64
+	ChunkID                  float64
+	JobID                    string
+	AssetID                  string
+	CreatedAtDay             time.Time
+	TotalDuration            float64
+	TotalRewardsConsumer     float64
+	TotalRewardsContentOwner float64
+	UserID                   string
 }
 
+// processJobs realiza um select em d -1 para obter os dados e criar uma goroutine para cada JobData
 func processJobs(datetime time.Time) error {
-	ctx := context.Background()
-	client, err := bigquery.NewClient(ctx, "seu-projeto-id")
+	client, err := bigquery.NewClient(context.Background(), "seu-projeto-id")
 	if err != nil {
 		return fmt.Errorf("falha ao criar cliente do BigQuery: %v", err)
 	}
 	defer client.Close()
 
-	// Executa a primeira consulta para obter JOB_ID e CHUNK_ID
-	// De acordo com o dia do cronjob
-	query := client.Query(`
-		SELECT JOB_ID, CHUNK_ID
-		FROM sua_tabela
-		WHERE EXTRACT(DATE FROM data) = DATE_SUB(CURRENT_DATE(), INTERVAL 1 DAY)
-	`)
+	dMinus1 := datetime.AddDate(0, 0, -1).Format("2006-01-02")
 
-	it, err := query.Read(ctx)
+	query := client.Query(fmt.Sprintf(`
+		SELECT
+			CHUNK_ID,
+			JOB_ID,
+			assetId,
+			createdAtDay,
+			totalDuration,
+			totalRewardsConsumer,
+			totalRewardsContentOwner,
+			userId
+		FROM
+			replay-staging-353318.replayAnalyticsStaging.table_blockchain_chunked_data_of_the_day_and_asset 
+		WHERE
+			status <> 'FINISHED'
+			AND createdAtDay = '%s'
+	`, dMinus1))
+
+	it, err := query.Read(context.Background())
 	if err != nil {
 		return fmt.Errorf("falha ao executar query: %v", err)
 	}
@@ -52,41 +69,36 @@ func processJobs(datetime time.Time) error {
 
 	// Para cada JobData, dispara uma goroutine
 	for _, job := range jobs {
-		go handleJob(ctx, client, &job)
+		job := job // Captura o valor atual de `job`
+		go func(job JobData) {
+			handleJob(&job) // Passa o job para handleJob
+		}(job)
 	}
 
 	return nil
 }
 
-func handleJob(ctx context.Context, client *bigquery.Client, job *JobData) {
-	query := client.Query(fmt.Sprintf(`
-		SELECT *
-		FROM tabela_block
-		WHERE JOB_ID = '%s' AND CHUNK_ID = %.1f
-	`, job.JobID, job.ChunkID))
-
-	it, err := query.Read(ctx)
-	if err != nil {
-		log.Printf("Erro ao executar query para JOB_ID: %s, CHUNK_ID: %.1f: %v", job.JobID, job.ChunkID, err)
-		return
-	}
-
-	// Processa os dados retornados (mockado para este exemplo)
-	var data []map[string]interface{}
-
-	for {
-		var row map[string]interface{}
-		err := it.Next(&row)
-		if err == iterator.Done {
-			break
-		}
-		if err != nil {
-			log.Printf("Erro ao ler resultados para JOB_ID: %s, CHUNK_ID: %.1f: %v", job.JobID, job.ChunkID, err)
-			return
-		}
-		data = append(data, row)
+func handleJob(job *JobData) {
+	data := []map[string]interface{}{
+		{
+			"chunk_id":                    job.ChunkID,
+			"job_id":                      job.JobID,
+			"asset_id":                    job.AssetID,
+			"created_at_day":              job.CreatedAtDay.Format("2006-01-02T15:04:05Z"), // Formata a data para ISO 8601
+			"total_duration":              job.TotalDuration,
+			"total_rewards_consumer":      job.TotalRewardsConsumer,
+			"total_rewards_content_owner": job.TotalRewardsContentOwner,
+			"user_id":                     job.UserID,
+		},
 	}
 
 	// Envia os dados para o webhook com retentativa
-	sendToWebhookWithRetry(data)
+	response, err := sendToWebhookWithRetry(data, 5) // Tenta 5 vezes em caso de falha
+	if err != nil {
+		// TODO: Notificar por email, slack ...
+		log.Printf("Falha ao enviar job %s: %v", job.JobID, err)
+	} else {
+		// TODO: Atualizar o status do job no BigQuery
+		log.Printf("Resposta do webhook para job %s: %s", job.JobID, response)
+	}
 }
