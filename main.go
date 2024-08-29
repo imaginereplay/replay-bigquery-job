@@ -3,17 +3,21 @@ package main
 import (
 	"fmt"
 	"log"
+	"os"
 	"time"
 
 	"github.com/robfig/cron/v3"
 )
 
 func main() {
+
+	secretName := fmt.Sprintf("%s/imaginereplay", os.Getenv("environment"))
+
 	c := cron.New()
 
 	// Adiciona uma tarefa para rodar todos os dias à 00:00
 	c.AddFunc("00 00 * * *", func() {
-		err := processJobs(time.Now())
+		err := processJobs(time.Now(), secretName)
 		if err != nil {
 			log.Println("Erro ao processar jobs:", err)
 		}

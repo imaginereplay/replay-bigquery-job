@@ -41,7 +41,7 @@ func sendToWebhook(data []map[string]interface{}) (string, error) {
 		return "", fmt.Errorf("erro ao serializar dados para JSON: %w", err)
 	}
 
-	req, err := http.NewRequest("POST", "node_api_url_here", bytes.NewBuffer(jsonData))
+	req, err := http.NewRequest("POST", "https://webhook.site/acea7b27-1160-4c09-bea5-b782a228bde3", bytes.NewBuffer(jsonData))
 	if err != nil {
 		return "", fmt.Errorf("erro ao criar requisição HTTP: %w", err)
 	}

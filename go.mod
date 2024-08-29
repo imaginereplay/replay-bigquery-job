@@ -4,6 +4,7 @@ go 1.23.0
 
 require (
 	cloud.google.com/go/bigquery v1.62.0
+	github.com/aws/aws-sdk-go v1.55.5
 	github.com/bytedance/sonic v1.12.2
 	github.com/robfig/cron/v3 v3.0.1
 	google.golang.org/api v0.188.0
@@ -30,6 +31,7 @@ require (
 	github.com/google/uuid v1.6.0 // indirect
 	github.com/googleapis/enterprise-certificate-proxy v0.3.2 // indirect
 	github.com/googleapis/gax-go/v2 v2.12.5 // indirect
+	github.com/jmespath/go-jmespath v0.4.0 // indirect
 	github.com/klauspost/compress v1.16.7 // indirect
 	github.com/klauspost/cpuid/v2 v2.2.5 // indirect
 	github.com/pierrec/lz4/v4 v4.1.18 // indirect
