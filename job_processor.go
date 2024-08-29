@@ -43,12 +43,12 @@ func processJobs(datetime time.Time, secretName string) error {
 			totalRewardsContentOwner,
 			userId
 		FROM
-			replay-staging-353318.replayAnalyticsStaging.table_blockchain_chunked_data_of_the_day_and_asset
+			replay-353318.replayAnalytics.table_blockchain_chunked_data_of_the_day_and_asset
 		WHERE
 			status <> 'FINISHED'
 			AND createdAtDay = '%s'
 	`, dMinus1)
-
+	//replay-staging-353318.replayAnalyticsStaging.table_blockchain_chunked_data_of_the_day_and_asset
 	query := client.Query(queryStr)
 
 	rows, err := query.Read(context.Background())
