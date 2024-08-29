@@ -9,10 +9,10 @@ import (
 	"google.golang.org/api/iterator"
 )
 
-type JobData struct {
+type JobDataRow struct {
 	ChunkID                  int64     `bigquery:"CHUNK_ID"`
 	JobID                    string    `bigquery:"JOB_ID"`
-	AssetID                  string    `bigquery:"assetId"`
+	AssetID                  *string   `bigquery:"assetId"`
 	CreatedAtDay             time.Time `bigquery:"createdAtDay"`
 	TotalDuration            float64   `bigquery:"totalDuration"`
 	TotalRewardsConsumer     float64   `bigquery:"totalRewardsConsumer"`
@@ -24,15 +24,14 @@ type JobData struct {
 func processJobs(datetime time.Time, secretName string) error {
 
 	client, err := GetBigQueryClient(secretName)
-
 	if err != nil {
 		log.Println("Falha ao criar cliente do BigQuery: ", err)
 		return err
 	}
+
 	defer client.Close()
 
 	dMinus1 := datetime.AddDate(0, 0, -1).Format("2006-01-02")
-
 	queryStr := fmt.Sprintf(`
 		SELECT
 			CHUNK_ID,
@@ -52,21 +51,18 @@ func processJobs(datetime time.Time, secretName string) error {
 
 	query := client.Query(queryStr)
 
-	// Leitura dos resultados da query
-	it, err := query.Read(context.Background())
+	rows, err := query.Read(context.Background())
 	if err != nil {
 		log.Println("Falha ao executar query: ", err)
 		return err
 	}
 
-	log.Println("Query executada com sucesso")
-
-	var jobs []JobData
+	var jobs []JobDataRow
 	var count int
 
 	for {
-		var row JobData
-		err := it.Next(&row)
+		var row JobDataRow
+		err := rows.Next(&row)
 		if err == iterator.Done {
 			if count == 0 {
 				log.Println("A query retornou um conjunto de resultados vazio.")
@@ -83,20 +79,25 @@ func processJobs(datetime time.Time, secretName string) error {
 		count++
 	}
 
-	// Dispara uma goroutine para cada JobData
+	chunkedData := make(map[int64][]JobDataRow)
 	for _, job := range jobs {
-		job := job // Captura o valor atual de `job`
-		go func(job JobData) {
-			handleJob(&job) // Passa o job para handleJob
-		}(job)
+		chunkedData[job.ChunkID] = append(chunkedData[job.ChunkID], job)
+	}
+
+	for chunkID, jobGroup := range chunkedData {
+		jobGroup := jobGroup
+		go func(chunkID int64, jobGroup []JobDataRow) {
+			handleJobGroup(chunkID, jobGroup)
+		}(chunkID, jobGroup)
 	}
 
 	return nil
 }
 
-func handleJob(job *JobData) {
-	data := []map[string]interface{}{
-		{
+func handleJobGroup(chunkID int64, jobs []JobDataRow) {
+	data := make([]map[string]interface{}, len(jobs))
+	for i, job := range jobs {
+		data[i] = map[string]interface{}{
 			"chunk_id":                    job.ChunkID,
 			"job_id":                      job.JobID,
 			"asset_id":                    job.AssetID,
@@ -105,16 +106,15 @@ func handleJob(job *JobData) {
 			"total_rewards_consumer":      job.TotalRewardsConsumer,
 			"total_rewards_content_owner": job.TotalRewardsContentOwner,
 			"user_id":                     job.UserID,
-		},
+		}
 	}
 
-	// Envia os dados para o webhook com retentativa
-	response, err := sendToWebhookWithRetry(data, 5) // Tenta 5 vezes em caso de falha
+	response, err := sendToWebhookWithRetry(data, 5)
 	if err != nil {
 		// TODO: Notificar por email, slack ...
-		log.Printf("Falha ao enviar job %s: %v", job.JobID, err)
+		log.Printf("Falha ao enviar jobs do chunk %d: %v", chunkID, err)
 	} else {
-		// TODO: Atualizar o status do job no BigQuery
-		log.Printf("Resposta do webhook para job %s: %s", job.JobID, response)
+		// TODO: Atualizar o status do chunk no BigQuery
+		log.Printf("Resposta do webhook para jobs do chunk %d: %s", chunkID, response)
 	}
 }
