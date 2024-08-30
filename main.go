@@ -13,10 +13,12 @@ func main() {
 
 	secretName := fmt.Sprintf("%s/imaginereplay", os.Getenv("environment"))
 
+	fmt.Println(secretName)
+
 	c := cron.New()
 
 	// Adiciona uma tarefa para rodar todos os dias à 00:00
-	c.AddFunc("00 00 * * *", func() {
+	c.AddFunc("* * * * *", func() {
 		err := processJobs(time.Now(), secretName)
 		if err != nil {
 			log.Println("Erro ao processar jobs:", err)

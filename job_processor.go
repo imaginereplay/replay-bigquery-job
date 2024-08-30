@@ -1,7 +1,9 @@
 package main
 
 import (
+	"cloud.google.com/go/bigquery"
 	"context"
+	"errors"
 	"fmt"
 	"log"
 	"time"
@@ -10,14 +12,15 @@ import (
 )
 
 type JobDataRow struct {
-	ChunkID                  int64     `bigquery:"CHUNK_ID"`
-	JobID                    string    `bigquery:"JOB_ID"`
-	AssetID                  *string   `bigquery:"assetId"`
-	CreatedAtDay             time.Time `bigquery:"createdAtDay"`
-	TotalDuration            float64   `bigquery:"totalDuration"`
-	TotalRewardsConsumer     float64   `bigquery:"totalRewardsConsumer"`
-	TotalRewardsContentOwner float64   `bigquery:"totalRewardsContentOwner"`
-	UserID                   string    `bigquery:"userId"`
+	JobID                    string              `bigquery:"JOB_ID"`
+	ChunkID                  float64             `bigquery:"CHUNK_ID"`
+	UserID                   string              `bigquery:"userId"`
+	AssetID                  bigquery.NullString `bigquery:"assetId"`
+	TotalDuration            int64               `bigquery:"totalDuration"`
+	TotalRewardsConsumer     float64             `bigquery:"totalRewardsConsumer"`
+	TotalRewardsContentOwner float64             `bigquery:"totalRewardsContentOwner"`
+	CreatedAtDay             time.Time           `bigquery:"createdAtDay"`
+	Status                   bigquery.NullString `bigquery:"status"`
 }
 
 // processJobs realiza um select em d-1 para obter os dados e criar uma goroutine para cada JobData
@@ -41,14 +44,17 @@ func processJobs(datetime time.Time, secretName string) error {
 			totalDuration,
 			totalRewardsConsumer,
 			totalRewardsContentOwner,
-			userId
+			userId,
+			status
 		FROM
 			replay-353318.replayAnalytics.table_blockchain_chunked_data_of_the_day_and_asset
 		WHERE
-			status <> 'FINISHED'
-			AND createdAtDay = '%s'
+			createdAtDay = '%s' AND
+		    status IS NULL
 	`, dMinus1)
-	//replay-staging-353318.replayAnalyticsStaging.table_blockchain_chunked_data_of_the_day_and_asset
+
+	// fmt.Println(queryStr)
+
 	query := client.Query(queryStr)
 
 	rows, err := query.Read(context.Background())
@@ -63,7 +69,7 @@ func processJobs(datetime time.Time, secretName string) error {
 	for {
 		var row JobDataRow
 		err := rows.Next(&row)
-		if err == iterator.Done {
+		if errors.Is(err, iterator.Done) {
 			if count == 0 {
 				log.Println("A query retornou um conjunto de resultados vazio.")
 			} else {
@@ -79,14 +85,14 @@ func processJobs(datetime time.Time, secretName string) error {
 		count++
 	}
 
-	chunkedData := make(map[int64][]JobDataRow)
+	chunkedData := make(map[float64][]JobDataRow)
 	for _, job := range jobs {
 		chunkedData[job.ChunkID] = append(chunkedData[job.ChunkID], job)
 	}
 
 	for chunkID, jobGroup := range chunkedData {
 		jobGroup := jobGroup
-		go func(chunkID int64, jobGroup []JobDataRow) {
+		go func(chunkID float64, jobGroup []JobDataRow) {
 			handleJobGroup(chunkID, jobGroup)
 		}(chunkID, jobGroup)
 	}
@@ -94,18 +100,33 @@ func processJobs(datetime time.Time, secretName string) error {
 	return nil
 }
 
-func handleJobGroup(chunkID int64, jobs []JobDataRow) {
+func handleJobGroup(chunkID float64, jobs []JobDataRow) {
 	data := make([]map[string]interface{}, len(jobs))
 	for i, job := range jobs {
+		var assetID interface{}
+		if job.AssetID.Valid {
+			assetID = job.AssetID.StringVal
+		} else {
+			assetID = nil
+		}
+
+		var status interface{}
+		if job.Status.Valid {
+			status = job.Status.StringVal
+		} else {
+			status = nil
+		}
+
 		data[i] = map[string]interface{}{
 			"chunk_id":                    job.ChunkID,
 			"job_id":                      job.JobID,
-			"asset_id":                    job.AssetID,
+			"asset_id":                    assetID,                                         // Use the processed assetID
 			"created_at_day":              job.CreatedAtDay.Format("2006-01-02T15:04:05Z"), // Formata a data para ISO 8601
 			"total_duration":              job.TotalDuration,
 			"total_rewards_consumer":      job.TotalRewardsConsumer,
 			"total_rewards_content_owner": job.TotalRewardsContentOwner,
 			"user_id":                     job.UserID,
+			"status":                      status,
 		}
 	}
 
