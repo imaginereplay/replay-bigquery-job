@@ -5,11 +5,15 @@ import (
 	"log"
 	"os"
 	"time"
-
+	"github.com/dotenv-org/godotenvvault"
 	"github.com/robfig/cron/v3"
 )
 
 func main() {
+ 	err := godotenvvault.Load()
+    if err != nil {
+      log.Fatal("Error loading .env file")
+    }
 
 	secretName := fmt.Sprintf("%s/imaginereplay", os.Getenv("environment"))
 
