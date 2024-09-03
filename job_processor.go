@@ -101,27 +101,30 @@ func processJobs(datetime time.Time, secretName string) error {
 }
 
 func handleJobGroup(chunkID float64, jobs []JobDataRow) {
-	data := make([]map[string]interface{}, len(jobs))
-	for i, job := range jobs {
-		var assetID interface{}
+	data := make([]map[string]any, len(jobs))
+
+	i := 0
+	for i = 0; i <= len(jobs); i++ {
+		job := jobs[i]
+		var assetID any
 		if job.AssetID.Valid {
 			assetID = job.AssetID.StringVal
 		} else {
 			assetID = nil
 		}
 
-		var status interface{}
+		var status any
 		if job.Status.Valid {
 			status = job.Status.StringVal
 		} else {
 			status = nil
 		}
 
-		data[i] = map[string]interface{}{
+		data[i] = map[string]any{
 			"chunk_id":                    job.ChunkID,
 			"job_id":                      job.JobID,
-			"asset_id":                    assetID,                                         // Use the processed assetID
-			"created_at_day":              job.CreatedAtDay.Format("2006-01-02T15:04:05Z"), // Formata a data para ISO 8601
+			"asset_id":                    assetID,
+			"created_at_day":              job.CreatedAtDay.Format("2006-01-02T15:04:05Z"),
 			"total_duration":              job.TotalDuration,
 			"total_rewards_consumer":      job.TotalRewardsConsumer,
 			"total_rewards_content_owner": job.TotalRewardsContentOwner,
@@ -132,10 +135,8 @@ func handleJobGroup(chunkID float64, jobs []JobDataRow) {
 
 	response, err := sendToWebhookWithRetry(data, 5)
 	if err != nil {
-		// TODO: Notificar por email, slack ...
-		log.Printf("Falha ao enviar jobs do chunk %d: %v", chunkID, err)
+		log.Printf("Falha ao enviar jobs do chunk %f: %v", chunkID, err)
 	} else {
-		// TODO: Atualizar o status do chunk no BigQuery
-		log.Printf("Resposta do webhook para jobs do chunk %d: %s", chunkID, response)
+		log.Printf("Resposta do webhook para jobs do chunk %f: %s", chunkID, response)
 	}
 }

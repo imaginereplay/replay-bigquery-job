@@ -14,7 +14,7 @@ import (
 var httpClient = &http.Client{Timeout: 10 * time.Second}
 
 // sendToWebhookWithRetry tenta enviar dados para o webhook com retentativa limitada
-func sendToWebhookWithRetry(data []map[string]interface{}, retries int) (string, error) {
+func sendToWebhookWithRetry(data []map[string]any, retries int) (string, error) {
 	var lastError error
 	for attempt := 1; attempt <= retries; attempt++ {
 		response, err := sendToWebhook(data)
@@ -35,7 +35,7 @@ func sendToWebhookWithRetry(data []map[string]interface{}, retries int) (string,
 }
 
 // sendToWebhook envia os dados para o webhook como uma requisição HTTP POST
-func sendToWebhook(data []map[string]interface{}) (string, error) {
+func sendToWebhook(data []map[string]any) (string, error) {
 	jsonData, err := sonic.Marshal(data)
 	if err != nil {
 		return "", fmt.Errorf("erro ao serializar dados para JSON: %w", err)
