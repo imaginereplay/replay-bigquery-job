@@ -5,15 +5,16 @@ import (
 	"log"
 	"os"
 	"time"
+
 	"github.com/dotenv-org/godotenvvault"
 	"github.com/robfig/cron/v3"
 )
 
 func main() {
- 	err := godotenvvault.Load()
-    if err != nil {
-      log.Fatal("Error loading .env file")
-    }
+	err := godotenvvault.Load()
+	if err != nil {
+		log.Fatal("Error loading .env file")
+	}
 
 	secretName := fmt.Sprintf("%s/imaginereplay", os.Getenv("environment"))
 
@@ -21,8 +22,8 @@ func main() {
 
 	c := cron.New()
 
-	// Adiciona uma tarefa para rodar todos os dias à 00:00
-	c.AddFunc("* * * * *", func() {
+	// Adiciona uma tarefa para rodar todos os dias às 23:59
+	c.AddFunc("59 23 * * *", func() {
 		err := processJobs(time.Now(), secretName)
 		if err != nil {
 			log.Println("Erro ao processar jobs:", err)
