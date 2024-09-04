@@ -1,21 +1,14 @@
 package main
 
 import (
-	"cloud.google.com/go/bigquery"
 	"context"
 	"errors"
 	"fmt"
-	"google.golang.org/api/iterator"
 	"log"
-	"math/big"
-	"strings"
 	"time"
 
-	"github.com/ethereum/go-ethereum/accounts/abi"
-	"github.com/ethereum/go-ethereum/accounts/abi/bind"
-	"github.com/ethereum/go-ethereum/common"
-	"github.com/ethereum/go-ethereum/crypto"
-	"github.com/ethereum/go-ethereum/ethclient"
+	"cloud.google.com/go/bigquery"
+	"google.golang.org/api/iterator"
 )
 
 type JobDataRow struct {
@@ -30,15 +23,13 @@ type JobDataRow struct {
 	Status                   bigquery.NullString `bigquery:"status"`
 }
 
-// processJobs realiza um select em d-1 para obter os dados e criar uma goroutine para cada JobData
+// Função para processar os jobs vindos do BigQuery
 func processJobs(datetime time.Time, secretName string) error {
-
 	client, err := GetBigQueryClient(secretName)
 	if err != nil {
 		log.Println("Falha ao criar cliente do BigQuery: ", err)
 		return err
 	}
-
 	defer client.Close()
 
 	dMinus1 := datetime.AddDate(0, 0, -1).Format("2006-01-02")
@@ -59,8 +50,6 @@ func processJobs(datetime time.Time, secretName string) error {
 			createdAtDay = '%s' AND
 		    status IS NULL
 	`, dMinus1)
-
-	fmt.Println(queryStr)
 
 	query := client.Query(queryStr)
 
@@ -88,29 +77,34 @@ func processJobs(datetime time.Time, secretName string) error {
 			log.Println("Falha ao ler resultados: ", err)
 			return err
 		}
+
 		jobs = append(jobs, row)
 		count++
 	}
 
-	chunkedData := make(map[float64][]JobDataRow)
-	for _, job := range jobs {
-		chunkedData[job.ChunkID] = append(chunkedData[job.ChunkID], job)
-	}
+	batchSize := 99
+	for i := 0; i < len(jobs); i += batchSize {
+		end := i + batchSize
+		if end > len(jobs) {
+			end = len(jobs)
+		}
 
-	for chunkID, jobGroup := range chunkedData {
-		jobGroup := jobGroup
-		go func(chunkID float64, jobGroup []JobDataRow) {
-			handleJobGroup(chunkID, jobGroup)
-		}(chunkID, jobGroup)
+		batch := jobs[i:end]
+
+		err := handleJobGroup(float64(i/batchSize), batch)
+
+		if err != nil {
+			log.Printf("Erro ao processar o batch %d ao %d: %v", i, end, err)
+		}
 	}
 
 	return nil
 }
-func handleJobGroup(chunkID float64, jobs []JobDataRow) {
+
+func handleJobGroup(chunkID float64, jobs []JobDataRow) error {
 	data := make([]map[string]any, len(jobs))
 
-	i := 0
-	for i = 0; i < len(jobs); i++ {
+	for i := 0; i < len(jobs); i++ {
 		job := jobs[i]
 		var assetID any
 		if job.AssetID.Valid {
@@ -147,59 +141,6 @@ func handleJobGroup(chunkID float64, jobs []JobDataRow) {
 	} else {
 		log.Printf("Jobs do chunk %f adicionados na blockchain com sucesso", chunkID)
 	}
-}
 
-func addToBlockchain(jobs []JobDataRow) error {
-	client, err := ethclient.Dial("https://mainnet.infura.io/v3/YOUR_INFURA_PROJECT_ID")
-	if err != nil {
-		return err
-	}
-
-	privateKey, err := crypto.HexToECDSA("YOUR_PRIVATE_KEY")
-	if err != nil {
-		return err
-	}
-
-	fromAddress := crypto.PubkeyToAddress(privateKey.PublicKey)
-	nonce, err := client.PendingNonceAt(context.Background(), fromAddress)
-	if err != nil {
-		return err
-	}
-
-	gasPrice, err := client.SuggestGasPrice(context.Background())
-	if err != nil {
-		return err
-	}
-
-	chainID, err := client.NetworkID(context.Background())
-	if err != nil {
-		return err
-	}
-
-	auth, err := bind.NewKeyedTransactorWithChainID(privateKey, chainID)
-	if err != nil {
-		return err
-	}
-	auth.Nonce = big.NewInt(int64(nonce))
-	auth.Value = big.NewInt(0)      // in wei
-	auth.GasLimit = uint64(3000000) // in units
-	auth.GasPrice = gasPrice
-
-	// Load the contract ABI
-	contractAddress := common.HexToAddress("YOUR_CONTRACT_ADDRESS")
-	parsedABI, err := abi.JSON(strings.NewReader(ABI)) // Assuming ABI is a string containing the contract ABI
-	if err != nil {
-		return err
-	}
-
-	contract := bind.NewBoundContract(contractAddress, parsedABI, client, client, client)
-
-	// Directly pass the jobs slice to the batchInsertRecords function
-	tx, err := contract.Transact(auth, "batchInsertRecords", jobs)
-	if err != nil {
-		return err
-	}
-
-	log.Printf("Transaction sent: %s", tx.Hash().Hex())
 	return nil
 }
