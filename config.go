@@ -5,6 +5,7 @@ import (
 	"encoding/base64"
 	"fmt"
 	"log"
+	"os"
 
 	"cloud.google.com/go/bigquery"
 	"github.com/aws/aws-sdk-go/aws"
@@ -98,11 +99,25 @@ func CreateSecretsManagerSession() (*secretsmanager.SecretsManager, error) {
 
 // CreateAWSSession creates and returns an AWS session configured for the 'us-east-1' region.
 func CreateAWSSession() (*session.Session, error) {
+	awsAccessKeyID := os.Getenv("AWS_ACCESS_KEY_ID")
+	if awsAccessKeyID == "" {
+		log.Println("AWS_ACCESS_KEY_ID is not set in environment variables")
+	} else {
+	}
+
+	awsSecretAccessKey := os.Getenv("AWS_SECRET_ACCESS_KEY")
+	if awsSecretAccessKey == "" {
+		log.Println("AWS_SECRET_ACCESS_KEY is not set in environment variables")
+	} else {
+		log.Printf("AWS_SECRET_ACCESS_KEY retrieved: [SECURE]")
+	}
+
 	sess, err := session.NewSession(&aws.Config{
 		Region: aws.String("us-east-1"),
 	})
 	if err != nil {
-		log.Println("Fatal Error: Unable to create AWS session")
+		log.Printf("Fatal Error: Unable to create AWS session: %v", err)
 	}
+
 	return sess, err
 }
