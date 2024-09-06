@@ -28,6 +28,8 @@ func main() {
 
 	c.Start()
 
+	fmt.Println("Cron started...")
+
 	// Route added to check if the cron is running and keep app alive
 	http.HandleFunc("/", func(w http.ResponseWriter, r *http.Request) {
 		fmt.Fprintln(w, "Cron is running...")
