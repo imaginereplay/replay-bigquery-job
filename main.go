@@ -32,6 +32,9 @@ func CreateAWSSessionTest() (*session.Session, error) {
 		log.Printf("Fatal Error: Unable to create AWS session: %v", err)
 	}
 
+	fmt.Println(awsAccessKeyID)
+	fmt.Println(awsSecretAccessKey)
+
 	fmt.Println("Session created")
 
 	return sess, err
