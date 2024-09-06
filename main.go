@@ -3,6 +3,7 @@ package main
 import (
 	"fmt"
 	"log"
+	"net/http"
 	"os"
 
 	"github.com/dotenv-org/godotenvvault"
@@ -12,14 +13,12 @@ import (
 func main() {
 	err := godotenvvault.Load()
 	if err != nil {
-		fmt.Println("Error loading .env file")
+		log.Println("Error loading .env file:", err)
 	}
 
-	secretName := fmt.Sprintf("%s/imaginereplay", os.Getenv("environment"))
+	secretName := fmt.Sprintf("%s/imaginereplay", os.Getenv("ENVIRONMENT"))
 
 	c := cron.New()
-
-	// Adiciona uma tarefa para rodar todos os dias às 23:59
 	c.AddFunc("59 23 * * *", func() {
 		err := processJobs(secretName)
 		if err != nil {
@@ -27,11 +26,18 @@ func main() {
 		}
 	})
 
-	// Inicia o cron
 	c.Start()
 
-	fmt.Println("Cron is running...")
+	// Route added to check if the cron is running and keep app alive
+	http.HandleFunc("/", func(w http.ResponseWriter, r *http.Request) {
+		fmt.Fprintln(w, "Cron is running...")
+	})
 
-	// Mantém o programa rodando
-	select {}
+	port := os.Getenv("PORT")
+	if port == "" {
+		port = "8080"
+	}
+
+	log.Printf("Listening on port %s\n", port)
+	log.Fatal(http.ListenAndServe(":"+port, nil))
 }
