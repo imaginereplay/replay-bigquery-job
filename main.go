@@ -3,7 +3,6 @@ package main
 import (
 	"fmt"
 	"log"
-	"net/http"
 	"os"
 
 	"github.com/dotenv-org/godotenvvault"
@@ -30,20 +29,5 @@ func main() {
 
 	fmt.Println("Cron started...")
 
-	// Route added to check if the cron is running and keep app alive
-	http.HandleFunc("/", func(w http.ResponseWriter, r *http.Request) {
-		fmt.Fprintln(w, "Cron is running...")
-	})
-
-	port := os.Getenv("PORT")
-
-	if port == "" {
-		port = "8080"
-	}
-
-	err = http.ListenAndServe(":"+port, nil)
-
-	if err != nil {
-		log.Println("Error starting server:", err)
-	}
+	select {}
 }
