@@ -5,12 +5,12 @@ import (
 	"log"
 	"os"
 
-	"github.com/joho/godotenv"
+	"github.com/dotenv-org/godotenvvault"
 	"github.com/robfig/cron/v3"
 )
 
 func main() {
-	err := godotenv.Load()
+	err := godotenvvault.Load()
 	if err != nil {
 		log.Println("Error loading .env file:", err)
 	}
@@ -21,7 +21,7 @@ func main() {
 	c := cron.New(cron.WithChain(cron.Recover(cron.DefaultLogger)))
 
 	// Schedule the job to run at 00:10 every day
-	_, err = c.AddFunc("10 0 * * *", func() {
+	_, err = c.AddFunc("13 21 * * *", func() {
 		err := processJobs(secretName)
 		if err != nil {
 			log.Println("Erro ao processar jobs:", err)

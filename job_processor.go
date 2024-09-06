@@ -83,25 +83,30 @@ func processJobs(secretName string) error {
 		count++
 	}
 
-	batchSize := 100
-	for i := 0; i < len(jobs); i += batchSize {
-		end := i + batchSize
-		if end > len(jobs) {
-			end = len(jobs)
-		}
-
-		batch := jobs[i:end]
-
-		err := addToBlockchain(batch)
-
-		if err != nil {
-			log.Printf("Erro ao processar o batch %d ao %d: %v", i, end, err)
-		}
-
-		fmt.Printf("Batch %d processado com sucesso\n", i)
-	}
-
-	fmt.Println("Todos os jobs foram processados com sucesso")
+	fmt.Printf("Total de jobs a serem processados: %d\n", len(jobs))
+	fmt.Println("Todos os jobs: ", jobs)
 
 	return nil
+
+	// batchSize := 100
+	// for i := 0; i < len(jobs); i += batchSize {
+	// 	end := i + batchSize
+	// 	if end > len(jobs) {
+	// 		end = len(jobs)
+	// 	}
+
+	// 	batch := jobs[i:end]
+
+	// 	err := addToBlockchain(batch)
+
+	// 	if err != nil {
+	// 		log.Printf("Erro ao processar o batch %d ao %d: %v", i, end, err)
+	// 	}
+
+	// 	fmt.Printf("Batch %d processado com sucesso\n", i)
+	// }
+
+	// fmt.Println("Todos os jobs foram processados com sucesso")
+
+	// return nil
 }
