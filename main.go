@@ -4,7 +4,6 @@ import (
 	"fmt"
 	"log"
 	"os"
-	"time"
 
 	"github.com/dotenv-org/godotenvvault"
 	"github.com/robfig/cron/v3"
@@ -24,7 +23,7 @@ func main() {
 
 	// Adiciona uma tarefa para rodar todos os dias às 23:59
 	c.AddFunc("59 23 * * *", func() {
-		err := processJobs(time.Now(), secretName)
+		err := processJobs(secretName)
 		if err != nil {
 			log.Println("Erro ao processar jobs:", err)
 		}

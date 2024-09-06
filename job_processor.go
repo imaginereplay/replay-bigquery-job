@@ -23,8 +23,7 @@ type JobDataRow struct {
 	Status                   bigquery.NullString `bigquery:"status"`
 }
 
-// Função para processar os jobs vindos do BigQuery
-func processJobs(datetime time.Time, secretName string) error {
+func processJobs(secretName string) error {
 	client, err := GetBigQueryClient(secretName)
 	if err != nil {
 		log.Println("Falha ao criar cliente do BigQuery: ", err)
@@ -32,7 +31,7 @@ func processJobs(datetime time.Time, secretName string) error {
 	}
 	defer client.Close()
 
-	dMinus1 := datetime.AddDate(0, 0, -1).Format("2006-01-02")
+	dMinus1 := time.Now().AddDate(0, 0, -1).Format("2006-01-02")
 	queryStr := fmt.Sprintf(`
 		SELECT
 			CHUNK_ID,
