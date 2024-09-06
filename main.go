@@ -21,7 +21,7 @@ func main() {
 	c := cron.New(cron.WithChain(cron.Recover(cron.DefaultLogger)))
 
 	// Schedule the job to run at 00:10 every day
-	_, err = c.AddFunc("13 21 * * *", func() {
+	_, err = c.AddFunc("35 21 * * *", func() {
 		err := processJobs(secretName)
 		if err != nil {
 			log.Println("Erro ao processar jobs:", err)
