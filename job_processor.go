@@ -24,6 +24,8 @@ type JobDataRow struct {
 }
 
 func processJobs(secretName string) error {
+	fmt.Println("Processing jobs at:", time.Now())
+
 	client, err := GetBigQueryClient(secretName)
 	if err != nil {
 		log.Println("Falha ao criar cliente do BigQuery: ", err)
