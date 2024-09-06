@@ -1,1 +1,0 @@
-worker: bin/replay-bigquery-job
