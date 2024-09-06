@@ -5,6 +5,7 @@ import (
 	"fmt"
 	"log"
 	"math/big"
+	"os"
 	"strings"
 	"time"
 
@@ -35,7 +36,7 @@ func addToBlockchain(jobs []JobDataRow) error {
 		return err
 	}
 
-	key := "0x675a916e0fa4bfa9435cafb158173059bc3057bbabd11016ede6f3b7d37add3b"
+	key := os.Getenv("DEPLOYER_PRIVATE_KEY")
 	if strings.HasPrefix(key, "0x") {
 		key = key[2:]
 	}
@@ -71,7 +72,7 @@ func addToBlockchain(jobs []JobDataRow) error {
 	auth.GasLimit = uint64(5000000) // Aumenta o GasLimit
 	auth.GasPrice = gasPrice
 
-	contractAddress := common.HexToAddress("0x54953C813543AAB514E8B91C02680aD530b6ccA6")
+	contractAddress := common.HexToAddress(os.Getenv("CONTRACT_ADDRESS"))
 	parsedABI, err := abi.JSON(strings.NewReader(ABI))
 	if err != nil {
 		log.Printf("Erro ao analisar o ABI: %v", err)
