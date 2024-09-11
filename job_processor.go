@@ -28,10 +28,15 @@ func processJobs(secretName string) error {
 
 	client, err := GetBigQueryClient(secretName)
 	if err != nil {
-		log.Println("Falha ao criar cliente do BigQuery: ", err)
+		log.Println("Failed to create BigQuery client: ", err)
 		return err
 	}
-	defer client.Close()
+	defer func(client *bigquery.Client) {
+		err := client.Close()
+		if err != nil {
+			log.Println("Failed to close BigQuery client: ", err)
+		}
+	}(client)
 
 	dMinus1 := time.Now().AddDate(0, 0, -1).Format("2006-01-02")
 	queryStr := fmt.Sprintf(`
@@ -56,7 +61,7 @@ func processJobs(secretName string) error {
 
 	rows, err := query.Read(context.Background())
 	if err != nil {
-		log.Println("Falha ao executar query: ", err)
+		log.Println("Failed to execute query: ", err)
 		return err
 	}
 
@@ -68,14 +73,14 @@ func processJobs(secretName string) error {
 		err := rows.Next(&row)
 		if errors.Is(err, iterator.Done) {
 			if count == 0 {
-				log.Println("A query retornou um conjunto de resultados vazio.")
+				log.Println("The query returned an empty result set.")
 			} else {
-				log.Printf("Total de jobs lidos: %d", count)
+				log.Printf("Total jobs read: %d", count)
 			}
 			break
 		}
 		if err != nil {
-			log.Println("Falha ao ler resultados: ", err)
+			log.Println("Failed to read results: ", err)
 			return err
 		}
 
@@ -95,13 +100,13 @@ func processJobs(secretName string) error {
 		err := addToBlockchain(batch)
 
 		if err != nil {
-			log.Printf("Erro ao processar o batch %d ao %d: %v", i, end, err)
+			log.Printf("Error processing batch %d to %d: %v", i, end, err)
 		}
 
-		fmt.Printf("Batch %d processado com sucesso\n", i)
+		fmt.Printf("Batch %d processed successfully\n", i)
 	}
 
-	fmt.Println("Todos os jobs foram processados com sucesso")
+	fmt.Println("All jobs were processed successfully")
 
 	return nil
 }
