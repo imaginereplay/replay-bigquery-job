@@ -2,6 +2,7 @@ package main
 
 import (
 	"context"
+	"errors"
 	"fmt"
 	"log"
 	"math/big"
@@ -32,7 +33,7 @@ type Transaction struct {
 func addToBlockchain(jobs []JobDataRow) error {
 	client, err := ethclient.Dial("https://base-sepolia-rpc.publicnode.com")
 	if err != nil {
-		log.Printf("Erro ao conectar ao cliente Ethereum: %v", err)
+		log.Printf("Error connecting to Ethereum client: %v", err)
 		return err
 	}
 
@@ -42,7 +43,7 @@ func addToBlockchain(jobs []JobDataRow) error {
 	}
 	privateKey, err := crypto.HexToECDSA(key)
 	if err != nil {
-		log.Printf("Erro ao converter chave privada: %v", err)
+		log.Printf("Error converting private key: %v", err)
 		return err
 	}
 
@@ -68,23 +69,18 @@ func addToBlockchain(jobs []JobDataRow) error {
 		return err
 	}
 	auth.Nonce = big.NewInt(int64(nonce))
-	auth.Value = big.NewInt(0)      // Sem valor transferido
-	auth.GasLimit = uint64(5000000) // Aumenta o GasLimit
+	auth.Value = big.NewInt(0)
+	auth.GasLimit = uint64(5000000)
 	auth.GasPrice = gasPrice
 
 	contractAddress := common.HexToAddress(os.Getenv("CONTRACT_ADDRESS"))
 	parsedABI, err := abi.JSON(strings.NewReader(ABI))
 	if err != nil {
-		log.Printf("Erro ao analisar o ABI: %v", err)
+		log.Printf("Error parsing ABI: %v", err)
 		return err
 	}
 
 	contract := bind.NewBoundContract(contractAddress, parsedABI, client, client, client)
-
-	if err != nil {
-		log.Printf("Erro ao estimar o gás: %v", err)
-		return err
-	}
 
 	transactions := make([]Transaction, len(jobs))
 	for i, job := range jobs {
@@ -110,7 +106,7 @@ func addToBlockchain(jobs []JobDataRow) error {
 
 	callData, err := parsedABI.Pack("batchInsertRecords", transactions)
 	if err != nil {
-		log.Printf("Erro ao empacotar os dados da transação: %v", err)
+		log.Printf("Error packing transaction data: %v", err)
 		return err
 	}
 
@@ -123,26 +119,26 @@ func addToBlockchain(jobs []JobDataRow) error {
 
 	tx, err := contract.Transact(auth, "batchInsertRecords", transactions)
 	if err != nil {
-		log.Printf("Erro ao enviar transação: %v", err)
+		log.Printf("Error sending transaction: %v", err)
 		return err
 	}
 
 	if tx == nil {
-		log.Printf("Transação retornada é nula")
-		return fmt.Errorf("transação retornada é nula")
+		log.Printf("Returned transaction is null")
+		return fmt.Errorf("returned transaction is null")
 	}
 
 	receipt, err := waitForConfirmation(client, tx.Hash())
 	if err != nil {
-		log.Printf("Erro ao aguardar a confirmação da transação. Hash: %s, Erro: %v", tx.Hash().Hex(), err)
+		log.Printf("Error waiting for transaction confirmation. Hash: %s, Error: %v", tx.Hash().Hex(), err)
 		return err
 	}
 
 	if receipt.Status == 1 {
-		log.Printf("Transação confirmada com sucesso! Hash: %s", tx.Hash().Hex())
+		log.Printf("Transaction successfully confirmed! Hash: %s", tx.Hash().Hex())
 	} else {
-		fmt.Printf("Transação falhou com status: %d, erro: %v", receipt.Status, err)
-		return fmt.Errorf("transação falhou com status: %d", receipt.Status)
+		fmt.Printf("Transaction failed with status: %d, error: %v", receipt.Status, err)
+		return fmt.Errorf("transaction failed with status: %d", receipt.Status)
 	}
 
 	return nil
@@ -151,7 +147,7 @@ func addToBlockchain(jobs []JobDataRow) error {
 func waitForConfirmation(client *ethclient.Client, txHash common.Hash) (*types.Receipt, error) {
 	for {
 		receipt, err := client.TransactionReceipt(context.Background(), txHash)
-		if err == ethereum.NotFound {
+		if errors.Is(err, ethereum.NotFound) {
 			time.Sleep(time.Second * 2)
 			continue
 		} else if err != nil {
