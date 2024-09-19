@@ -31,7 +31,7 @@ type Transaction struct {
 }
 
 func addToBlockchain(jobs []JobDataRow) error {
-	client, err := ethclient.Dial("https://base-sepolia-rpc.publicnode.com")
+	client, err := ethclient.Dial(os.Getenv("RPC_URL"))
 	if err != nil {
 		log.Printf("Error connecting to Ethereum client: %v", err)
 		return err
