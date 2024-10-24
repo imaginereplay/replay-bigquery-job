@@ -88,7 +88,7 @@ func processJobs(secretName string) error {
 		count++
 	}
 
-	batchSize := 100
+	batchSize := 50
 	for i := 0; i < len(jobs); i += batchSize {
 		end := i + batchSize
 		if end > len(jobs) {

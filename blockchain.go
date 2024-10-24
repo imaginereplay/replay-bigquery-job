@@ -64,15 +64,6 @@ func addToBlockchain(jobs []JobDataRow) error {
 		return err
 	}
 
-	auth, err := bind.NewKeyedTransactorWithChainID(privateKey, chainID)
-	if err != nil {
-		return err
-	}
-	auth.Nonce = big.NewInt(int64(nonce))
-	auth.Value = big.NewInt(0)
-	auth.GasLimit = uint64(5000000)
-	auth.GasPrice = gasPrice
-
 	contractAddress := common.HexToAddress(os.Getenv("CONTRACT_ADDRESS"))
 	parsedABI, err := abi.JSON(strings.NewReader(ABI))
 	if err != nil {
@@ -104,18 +95,35 @@ func addToBlockchain(jobs []JobDataRow) error {
 		}
 	}
 
+	auth, err := bind.NewKeyedTransactorWithChainID(privateKey, chainID)
+	if err != nil {
+		return err
+	}
+	auth.Nonce = big.NewInt(int64(nonce))
+	auth.Value = big.NewInt(0)
+	auth.GasPrice = gasPrice
+
 	callData, err := parsedABI.Pack("batchInsertRecords", transactions)
 	if err != nil {
 		log.Printf("Error packing transaction data: %v", err)
 		return err
 	}
 
-	gasLimit, err := client.EstimateGas(context.Background(), ethereum.CallMsg{
-		To:   &contractAddress,
-		Data: callData,
-	})
+	msg := ethereum.CallMsg{
+		From:     fromAddress,
+		To:       &contractAddress,
+		GasPrice: gasPrice,
+		Value:    big.NewInt(0),
+		Data:     callData,
+	}
 
-	auth.GasLimit = gasLimit + gasLimit/5 // Increase gas limit by 20%
+	gasLimit, err := client.EstimateGas(context.Background(), msg)
+	if err != nil {
+		log.Printf("Error estimating gas limit: %v", err)
+		return err
+	}
+
+	auth.GasLimit = gasLimit
 
 	tx, err := contract.Transact(auth, "batchInsertRecords", transactions)
 	if err != nil {
